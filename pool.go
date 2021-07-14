@@ -1,29 +1,36 @@
 package pool
 
+import (
+	"context"
+
+	"golang.org/x/sync/semaphore"
+)
+
 // WorkFunc is the worker function user define
 type WorkFunc func(arg ...interface{}) interface{}
 
 type Pool struct {
-	size    int
-	blocker chan struct{}
+	size  int64
+	limit *semaphore.Weighted
 }
 
 // SetSize change the pool size
-func (p *Pool) SetSize(size int) {
+func (p *Pool) SetSize(size int64) {
 	p.size = size
-	p.blocker = make(chan struct{}, size)
+	p.limit = semaphore.NewWeighted(size)
 }
 
 // Spawn do a job in pool
 func (p *Pool) Spawn(f WorkFunc, args ...interface{}) *Job {
-	p.blocker <- struct{}{}
+	limit := p.limit
+	limit.Acquire(context.Background(), 1)
 
 	var job Job
 	job.running()
 
 	go func(f WorkFunc, args ...interface{}) {
 		job.start(f, args...)
-		<-p.blocker
+		limit.Release(1)
 	}(f, args...)
 
 	return &job
@@ -57,9 +64,9 @@ func (p *Pool) Map(f WorkFunc, args []interface{}) []interface{} {
 }
 
 // New make a new Pool
-func New(size int) *Pool {
+func New(size int64) *Pool {
 	return &Pool{
-		size:    size,
-		blocker: make(chan struct{}, size),
+		size:  size,
+		limit: semaphore.NewWeighted(size),
 	}
 }
