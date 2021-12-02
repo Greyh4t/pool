@@ -20,6 +20,11 @@ func (p *Pool) SetSize(size int64) {
 	p.limit = semaphore.NewWeighted(size)
 }
 
+// GetSize get the pool size
+func (p *Pool) GetSize() int64 {
+	return p.size
+}
+
 // Spawn do a job in pool
 func (p *Pool) Spawn(f WorkFunc, args ...interface{}) *Job {
 	limit := p.limit
